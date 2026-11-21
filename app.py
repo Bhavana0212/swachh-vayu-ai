@@ -380,7 +380,9 @@ def theme_fig(fig, legend_below: bool = False):
         hovermode="x unified",
         hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D1E7DC",
                         font_size=12),
-        margin=dict(l=10, r=10, t=40, b=10))
+        # A below-chart legend needs bottom room, else it sits inside
+        # the frame's bottom edge.
+        margin=dict(l=10, r=10, t=40, b=60 if legend_below else 10))
     fig.update_xaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
     fig.update_yaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
     return fig
@@ -451,31 +453,38 @@ def aqi_gauge_html(indian) -> str:
 
 
 def sub_index_chart(indian):
-    """Horizontal bar chart of the CPCB sub-index per pollutant — the
+    """Vertical bar chart of the CPCB sub-index per pollutant — the
     visual answer to 'why is the AQI this value?'. Bars are coloured by
-    their CPCB band; values are the real calculated sub-indices."""
-    items = sorted(indian.sub_indices.items(), key=lambda kv: kv[1])
+    their CPCB band; values are the real calculated sub-indices, largest
+    first so the dominant pollutant leads (same order as the table
+    below). Vertical, mirroring the 5-day trend chart: the earlier
+    horizontal version rendered its value labels microscopically in the
+    deployed app despite textfont size 14, while the vertical 5-day
+    chart's labels are legible — so this chart copies that proven
+    structure exactly."""
+    items = sorted(indian.sub_indices.items(), key=lambda kv: -kv[1])
     labels = [pollutant_label(key) for key, _ in items]
     values = [sub for _, sub in items]
     cats = [indian_category_for(sub)[0] for sub in values]
-    fig = px.bar(x=values, y=labels, color=cats,
+    fig = px.bar(x=labels, y=values, color=cats,
                  color_discrete_map=CPCB_DISCRETE_COLOURS,
-                 labels={"x": "Sub-index (CPCB)", "y": "",
+                 labels={"x": "Pollutant", "y": "Sub-index (CPCB)",
                          "color": "CPCB band"},
-                 orientation="h")
-    fig.update_layout(height=max(220, 60 + 34 * len(items)),
-                      showlegend=False, bargap=0.35)
-    # Value labels at the end of each bar (texttemplate evaluates
-    # per-point, so it stays correct across the per-band traces), with
-    # headroom on the x-axis so the longest label is never clipped.
+                 # Discrete colour groups re-order the x-axis unless
+                 # pinned: keep the largest-first order.
+                 category_orders={"x": labels})
+    fig.update_layout(height=320, showlegend=True,
+                      legend=dict(title="CPCB band"))
+    # Value labels on top of each bar (same pattern as the 5-day chart),
+    # with headroom so the tallest label is never clipped.
     top = max(values) if values else 0
     if top > 0:
-        fig.update_xaxes(range=[0, top * 1.14])
-    fig.update_traces(marker_line_width=0, texttemplate="%{x:.0f}",
+        fig.update_yaxes(range=[0, top * 1.15])
+    fig.update_traces(marker_line_width=0, texttemplate="%{y:.0f}",
                       textposition="outside",
                       textfont=dict(size=14, color="#1F2937"),
-                      hovertemplate="%{y}: %{x:.0f}<extra></extra>")
-    return theme_fig(fig)
+                      hovertemplate="%{x}: %{y:.0f}<extra></extra>")
+    return theme_fig(fig, legend_below=True)
 
 
 # ---------------------------------------------------------------------------
