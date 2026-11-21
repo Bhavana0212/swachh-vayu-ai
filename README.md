@@ -10,7 +10,7 @@ choice.**
 Built for **Hack2Skill Virtual: PromptWars — Challenge 6: Urban Air Quality
 Assistant**. Free, no login, no account. India only.
 
-> **Live app:** _add the Streamlit Cloud URL after deploy_
+> **Live app:** https://swachh-vayu-ai.streamlit.app/
 > **Demo video:** _add the Unlisted YouTube link after upload_
 > **By Bhavana Shah** · Hack2Skill Virtual: PromptWars — Challenge 6
 
