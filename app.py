@@ -10,6 +10,9 @@ a local SQLite file with a session-state fallback.
 """
 from __future__ import annotations
 
+import math
+import pathlib
+
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -133,14 +136,46 @@ from planner.ai import (
     local_advice,
     offline_report_summary,
 )
-from planner.indian_aqi import LABEL as INDIAN_AQI_LABEL
+from planner.indian_aqi import (
+    CATEGORIES as INDIAN_CATEGORIES,
+    LABEL as INDIAN_AQI_LABEL,
+    category_for as indian_category_for,
+)
 
 st.set_page_config(
     page_title="SwachhVayu AI — Urban Air Quality Assistant",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={"About": "SwachhVayu AI — Urban Air Quality Assistant for India. "
+                         "Calculated Indian AQI (CPCB method) from modelled "
+                         "data, personalised routines, indoor air hacks and "
+                         "sustainable alternatives. Free, no login."},
 )
+
+
+def load_professional_theme() -> None:
+    """Inject the professional theme CSS (assets/professional-theme.css).
+
+    Theme lives in its own file, not mixed into app logic — that is the
+    well-architected split: planner/ = engine, app.py = screens,
+    assets/professional-theme.css = look. If the file is missing (e.g.
+    a partial upload), the app still works with Streamlit's default look.
+    """
+    css_path = pathlib.Path(__file__).resolve().parent / "assets" / "professional-theme.css"
+    if css_path.exists():
+        st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+
+
+load_professional_theme()
+
+
+def load_hero_art() -> str:
+    """Decorative hero SVG (assets/hero.svg), inlined; empty if missing."""
+    svg_path = pathlib.Path(__file__).resolve().parent / "assets" / "hero.svg"
+    if svg_path.exists():
+        return svg_path.read_text(encoding="utf-8")
+    return ""
 
 APP_NAME = "SwachhVayu AI"
 
@@ -244,6 +279,8 @@ def apply_accessibility_css() -> None:
             .stApp { background-color: #000000; color: #FFFFFF; }
             .stApp [data-testid="stSidebar"] { background-color: #111111; }
             .stApp h1, .stApp h2, .stApp h3 { color: #FFFFFF; }
+            .stApp label { color: #FFFFFF !important; }
+            .stApp [data-testid="stCaptionContainer"] { color: #D1D5DB !important; }
             """)
     if css:
         st.markdown(f"<style>{''.join(css)}</style>", unsafe_allow_html=True)
@@ -271,21 +308,131 @@ def pollutant_card(label: str, value, unit: str, status: str) -> None:
     st.metric(label, text, help=f"Data status: {status}")
 
 
+# CPCB band colours, reused wherever a chart colours by AQI band — the
+# same verified colours as planner/indian_aqi.CATEGORIES, never re-themed.
+CPCB_DISCRETE_COLOURS = {cat: colour for _, _, cat, colour, _, _
+                         in INDIAN_CATEGORIES}
+# Continuous scale with HARD edges at the CPCB band limits (0/50/100/200/
+# 300/400/500 over a 0–500 range), so a coloured marker always falls in
+# its real CPCB band instead of blending between bands.
+CPCB_COLORSCALE = [
+    (0.0, "#00B050"), (0.10, "#00B050"),
+    (0.10, "#92D050"), (0.20, "#92D050"),
+    (0.20, "#FFFF00"), (0.40, "#FFFF00"),
+    (0.40, "#FF9900"), (0.60, "#FF9900"),
+    (0.60, "#FF0000"), (0.80, "#FF0000"),
+    (0.80, "#C00000"), (1.0, "#C00000"),
+]
+
+
+def theme_fig(fig, legend_below: bool = False):
+    """Shared Plotly styling: theme font, transparent paper (the chart
+    sits on a white CSS card), soft gridlines, tidy margins. Legends sit
+    inside the plot (short entries) or below it (long band names, which
+    clip inside)."""
+    legend = (dict(bgcolor="rgba(255,255,255,0.85)",
+                   bordercolor="#D1E7DC", borderwidth=1,
+                   orientation="h", yanchor="top", y=-0.2,
+                   xanchor="center", x=0.5)
+              if legend_below else
+              dict(bgcolor="rgba(255,255,255,0.85)",
+                   bordercolor="#D1E7DC", borderwidth=1,
+                   x=0.99, xanchor="right", y=0.99, yanchor="top"))
+    fig.update_layout(
+        font=dict(family="Inter, 'Segoe UI', system-ui, sans-serif",
+                  size=13, color="#1F2937"),
+        title=dict(font=dict(size=15, color="#0A5C44")),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        legend=legend,
+        hovermode="x unified",
+        margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_xaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
+    fig.update_yaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
+    return fig
+
+
 def aqi_chart(hourly, title: str):
     """Hourly PM2.5 + Indian AQI chart (Plotly)."""
     times = [p.time[11:16] for p in hourly]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=times, y=[p.pm2_5 for p in hourly], name="PM2.5 (µg/m³)",
-        mode="lines+markers", line=dict(color="#0E7490")))
+        mode="lines+markers", line=dict(color="#0E7490", width=2.5),
+        marker=dict(size=5)))
     fig.add_trace(go.Scatter(
         x=times, y=[p.indian_aqi for p in hourly],
-        name="Indicative Indian AQI", mode="lines",
-        line=dict(color="#C2410C", dash="dash")))
+        name="Indian AQI*", mode="lines",
+        line=dict(color="#C2410C", dash="dash", width=2)))
     fig.update_layout(title=title, xaxis_title="Time (IST)",
-                      yaxis_title="Value", height=320,
-                      margin=dict(l=10, r=10, t=40, b=10))
-    return fig
+                      yaxis_title="Value", height=320)
+    return theme_fig(fig)
+
+
+def _gauge_arc(cx: float, cy: float, r: float, start_deg: float,
+               end_deg: float) -> str:
+    """SVG arc path for one gauge band (angles in degrees, 180 = left,
+    360 = right, over the top of the dial)."""
+    x1 = cx + r * math.cos(math.radians(start_deg))
+    y1 = cy + r * math.sin(math.radians(start_deg))
+    x2 = cx + r * math.cos(math.radians(end_deg))
+    y2 = cy + r * math.sin(math.radians(end_deg))
+    return f"M {x1:.1f} {y1:.1f} A {r} {r} 0 0 1 {x2:.1f} {y2:.1f}"
+
+
+def aqi_gauge_html(indian) -> str:
+    """Animated AQI gauge dial (inline SVG). The needle sweeps from the
+    left to the real AQI value on load (CSS animation in the theme).
+    Band arcs use the CPCB colours; the badge next to it stays the
+    accessible, labelled reading."""
+    value = indian.value if indian.available else None
+    if value is None:
+        return ""
+    clamped = max(0.0, min(500.0, float(value)))
+    angle = (clamped / 500.0) * 180.0 - 90.0
+    arcs = "".join(
+        f'<path d="{_gauge_arc(100, 100, 80, 180 + 30 * i, 210 + 30 * i)}" '
+        f'stroke="{colour}" stroke-width="14" fill="none" '
+        f'stroke-linecap="butt"/>'
+        for i, (_, _, _, colour, _, _) in enumerate(INDIAN_CATEGORIES))
+    return (
+        '<div class="sv-gauge" role="img" aria-label="Calculated Indian AQI '
+        f'gauge: {indian.value:g}, {indian.category}">'
+        '<svg viewBox="0 0 200 122" aria-hidden="true">'
+        f"{arcs}"
+        '<g class="gauge-needle" style="--gauge-angle: '
+        f'{angle:.1f}deg">'
+        '<line x1="100" y1="100" x2="100" y2="32" stroke="#1F2937" '
+        'stroke-width="3" stroke-linecap="round"/></g>'
+        '<circle cx="100" cy="100" r="7" fill="#1F2937"/>'
+        '<circle cx="100" cy="100" r="3" fill="#FFFFFF"/>'
+        f'<text x="100" y="118" text-anchor="middle" class="gauge-value">'
+        f'{indian.value:g}</text>'
+        '<text x="22" y="118" text-anchor="middle" class="gauge-tick">0</text>'
+        '<text x="178" y="118" text-anchor="middle" class="gauge-tick">500</text>'
+        "</svg>"
+        f'<div class="gauge-category" style="margin-top:-6px;">'
+        f"{indian.symbol} {indian.category}</div></div>"
+    )
+
+
+def sub_index_chart(indian):
+    """Horizontal bar chart of the CPCB sub-index per pollutant — the
+    visual answer to 'why is the AQI this value?'. Bars are coloured by
+    their CPCB band; values are the real calculated sub-indices."""
+    items = sorted(indian.sub_indices.items(), key=lambda kv: kv[1])
+    labels = [key.replace("_", " ").upper() for key, _ in items]
+    values = [sub for _, sub in items]
+    cats = [indian_category_for(sub)[0] for sub in values]
+    fig = px.bar(x=values, y=labels, color=cats,
+                 color_discrete_map=CPCB_DISCRETE_COLOURS,
+                 labels={"x": "Sub-index (CPCB)", "y": "Pollutant",
+                         "color": "CPCB band"},
+                 orientation="h")
+    fig.update_layout(height=max(220, 60 + 34 * len(items)),
+                      showlegend=False)
+    fig.update_traces(marker_line_width=0, hovertemplate="%{y}: %{x}<extra></extra>")
+    return theme_fig(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -382,11 +529,21 @@ report = current_report()
 
 
 def page_home() -> None:
-    st.title(f"{L('nav_home')} — {report.city.name}")
-    sample_banner(report)
     now = ist_now()
-    st.markdown(f"**{greeting(now.hour, lang())}** · "
-                f"{now.strftime('%A, %d %B %Y · %I:%M %p')} IST")
+    # Hero header block (same content as the old title + greeting, now a
+    # designed, animated band with SVG skyline art).
+    st.markdown(
+        '<div class="sv-hero">'
+        f'<div class="sv-hero-art">{load_hero_art()}</div>'
+        '<div class="pro-header">'
+        f'<span class="pro-brand">🌿 {APP_NAME}</span>'
+        f'<span class="pro-tag">{L("tagline")}</span></div>'
+        f"<h1>{L('nav_home')} — {report.city.name}</h1>"
+        f"<p class=\"sv-hero-sub\"><b>{greeting(now.hour, lang())}</b> · "
+        f"{now.strftime('%A, %d %B %Y · %I:%M %p')} IST</p>"
+        "</div>",
+        unsafe_allow_html=True)
+    sample_banner(report)
 
     indian = report.indian_aqi
     value, scale, category = report.primary_aqi()
@@ -397,6 +554,7 @@ def page_home() -> None:
         st.subheader(L("indian_aqi"))
         if indian.available:
             st.markdown(indian.badge_html(), unsafe_allow_html=True)
+            st.markdown(aqi_gauge_html(indian), unsafe_allow_html=True)
             st.caption(INDIAN_AQI_LABEL)
             st.caption(f"Averaging basis: {indian.basis}")
             st.caption(f"Dominant pollutant: {indian.dominant}")
@@ -444,9 +602,10 @@ def page_home() -> None:
     st.caption("CO is converted from µg/m³ to mg/m³ (÷1000) before the CPCB "
                "breakpoints are applied.")
 
-    # Sub-index table — WHY the AQI is what it is
+    # Sub-index chart + table — WHY the AQI is what it is
     if indian.available and indian.sub_indices:
         st.subheader("Why is the AQI this value? Sub-index per pollutant")
+        st.plotly_chart(sub_index_chart(indian), width="stretch")
         rows = []
         for key, sub in sorted(indian.sub_indices.items(),
                                key=lambda item: -item[1]):
@@ -538,15 +697,21 @@ def page_home() -> None:
     st.subheader("5-day trend (max indicative Indian AQI per day)")
     trend = report.daily_trend()
     if trend:
+        trend_values = [(ind if ind is not None else us)
+                        for _, us, _, ind in trend]
+        day_labels = [day_label(day) for day, _, _, _ in trend]
         fig = px.bar(
-            x=[day_label(day) for day, _, _, _ in trend],
-            y=[(ind if ind is not None else us) for _, us, _, ind in trend],
+            x=day_labels,
+            y=trend_values,
             labels={"x": "Day", "y": "Max AQI"},
-            color=[(ind if ind is not None else us) for _, us, _, ind in trend],
-            color_continuous_scale="RdYlGn_r")
-        fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10),
-                          coloraxis_showscale=False)
-        st.plotly_chart(fig, width="stretch")
+            color=[indian_category_for(v)[0] for v in trend_values],
+            color_discrete_map=CPCB_DISCRETE_COLOURS,
+            # Discrete colour groups re-order the x-axis unless pinned:
+            # keep the days chronological.
+            category_orders={"x": day_labels})
+        fig.update_layout(height=320, showlegend=True,
+                          legend=dict(title="CPCB band"))
+        st.plotly_chart(theme_fig(fig, legend_below=True), width="stretch")
 
     st.subheader("Data confidence")
     st.write({key: value for key, value in conf.items()})
@@ -672,14 +837,21 @@ def page_forecast() -> None:
     st.subheader("5-day pollution trend")
     trend = report.daily_trend()
     if trend:
+        trend_values = [(ind if ind is not None else us)
+                        for _, us, _, ind in trend]
+        day_labels = [day_label(day) for day, _, _, _ in trend]
         fig = px.bar(
-            x=[day_label(day) for day, _, _, _ in trend],
-            y=[(ind if ind is not None else us) for _, us, _, ind in trend],
+            x=day_labels,
+            y=trend_values,
             labels={"x": "Day", "y": "Max AQI"},
-            color=[(ind if ind is not None else us) for _, us, _, ind in trend],
-            color_continuous_scale="RdYlGn_r")
-        fig.update_layout(height=300, coloraxis_showscale=False)
-        st.plotly_chart(fig, width="stretch")
+            color=[indian_category_for(v)[0] for v in trend_values],
+            color_discrete_map=CPCB_DISCRETE_COLOURS,
+            # Discrete colour groups re-order the x-axis unless pinned:
+            # keep the days chronological.
+            category_orders={"x": day_labels})
+        fig.update_layout(height=320, showlegend=True,
+                          legend=dict(title="CPCB band"))
+        st.plotly_chart(theme_fig(fig, legend_below=True), width="stretch")
         st.table([{"Day": day_label(day),
                    "Max US AQI": us if us is not None else "—",
                    "Mean PM2.5": pm if pm is not None else "—",
@@ -1202,13 +1374,23 @@ def page_compare() -> None:
             fig = px.scatter_geo(
                 df, lat="lat", lon="lon", color="aqi", size="aqi",
                 hover_name="city", hover_data={"category": True, "aqi": True},
-                color_continuous_scale="RdYlGn_r", range_color=[0, 500],
+                color_continuous_scale=CPCB_COLORSCALE, range_color=[0, 500],
                 scope="asia",
                 title="Calculated Indian AQI by city (modelled data)")
             fig.update_geos(center=dict(lat=22.0, lon=79.0),
-                            projection_scale=4.5)
-            fig.update_layout(height=480, margin=dict(l=10, r=10, t=40, b=10))
-            st.plotly_chart(fig, width="stretch")
+                            projection_scale=4.5, showland=True,
+                            landcolor="#EAF7F0", showocean=True,
+                            oceancolor="#DFF2F7", showcountries=True,
+                            countrycolor="#C9EBD9", showcoastlines=True,
+                            coastlinecolor="#C9EBD9")
+            fig.update_layout(height=480)
+            fig.update_coloraxes(colorbar=dict(title="Indian AQI",
+                                               tickvals=[25, 75, 150, 250,
+                                                         350, 450],
+                                               ticktext=["Good", "Satisfactory",
+                                                         "Moderate", "Poor",
+                                                         "Very Poor", "Severe"]))
+            st.plotly_chart(theme_fig(fig), width="stretch")
         st.subheader("City Clean-Air Ranking")
         ranked_all = sorted(map_rows, key=lambda r: (r["aqi"] is None,
                                                      r["aqi"] or 0))
@@ -1798,3 +1980,17 @@ ROUTER = {
 }
 
 ROUTER[page]()
+
+# Footer on every page (celebration .pro-footer pattern): data honesty
+# note + credit, always visible at the bottom.
+st.markdown(
+    '<div class="pro-footer">'
+    f"<div><b>🌿 {APP_NAME}</b> — Urban Air Quality Assistant for India · "
+    "Hack2Skill Virtual: PromptWars — Challenge 6</div>"
+    "<div>Data: Open-Meteo Air Quality API (Copernicus CAMS modelled data, "
+    "not live sensor data). Indian AQI calculated in-app by the CPCB method "
+    "— not a CPCB station reading. Health guidance is general information, "
+    "not medical advice.</div>"
+    "<div>Free, no login, no account · Built by Bhavana Shah</div>"
+    "</div>",
+    unsafe_allow_html=True)
