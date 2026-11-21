@@ -1,0 +1,142 @@
+/* SwachhVayu AI — professional theme. Fresh-air palette: deep leaf green
+   + teal on a soft mint background. Same architecture as the Celebration &
+   Event Planner theme (assets/professional-theme.css = look, app.py =
+   screens, planner/ = engine), adapted — not cloned — for this app.
+   Deliberately NOT styled here: the sidebar navigation radio internals
+   and any segmented control (those selectors did not match the live
+   Streamlit DOM in the celebration project and broke the nav layout).
+   AQI badge colours are CPCB colours set inline by planner/indian_aqi.py
+   and are never overridden here. The high-contrast / large-text modes
+   inject their CSS AFTER this file, so no rule below uses !important on
+   .stApp, sidebar or heading backgrounds/colours. */
+
+/* ---- Base ---- */
+.stApp { font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif; color: #1F2937; background: #F2FBF7; }
+.block-container { max-width: 1180px; padding-top: 2rem; padding-bottom: 3rem; }
+h1, h2, h3 { color: #0A5C44; letter-spacing: -0.02em; }
+h1 { font-size: 2rem; font-weight: 700; line-height: 1.15; }
+h2 { font-size: 1.45rem; font-weight: 700; margin-top: 1.5rem; border-bottom: 1px solid #C9EBD9; padding-bottom: 0.35rem; }
+h3 { font-size: 1.1rem; font-weight: 700; }
+a { color: #0E7C5B; }
+hr { border-color: #D1E7DC; }
+
+/* ---- Motion (subtle, tasteful) ---- */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes heroPan { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@keyframes drift { from { transform: translateX(-14px); } to { transform: translateX(18px); } }
+@keyframes floatY { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+@keyframes gaugeSweep { from { transform: rotate(-90deg); } }
+@keyframes pulseSoft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---- Hero / header block (Home Dashboard) ---- */
+.sv-hero { position: relative; overflow: hidden; border-radius: 20px; padding: 1.6rem 1.8rem 1.4rem; margin: 0.25rem 0 1.25rem; color: #FFFFFF;
+  background: linear-gradient(120deg, #0A5C44, #0E7C5B 40%, #0E7490 75%, #0A5C44);
+  background-size: 220% 220%; animation: heroPan 18s ease-in-out infinite;
+  box-shadow: 0 8px 28px rgba(14, 124, 91, 0.28); }
+.sv-hero h1 { color: #FFFFFF; font-size: 1.9rem; margin: 0.35rem 0 0.25rem; border: none; padding: 0; }
+.sv-hero .sv-hero-sub { color: #D1FAE5; font-size: 1rem; margin: 0; }
+.sv-hero .sv-hero-tag { color: #A7F3D0; font-size: 0.9rem; font-style: italic; margin-top: 0.4rem; }
+.sv-hero-art { position: absolute; top: 0; right: 0; height: 100%; width: 58%; pointer-events: none; }
+.sv-hero-art svg { height: 100%; width: 100%; }
+.sv-hero-art .c1 { animation: drift 26s ease-in-out infinite alternate; }
+.sv-hero-art .c2 { animation: drift 34s ease-in-out infinite alternate-reverse; }
+.sv-hero-art .c3 { animation: drift 22s ease-in-out infinite alternate; }
+.sv-hero-art .l1 { animation: floatY 6s ease-in-out infinite alternate; }
+.sv-hero-art .l2 { animation: floatY 7.5s ease-in-out infinite alternate-reverse; }
+.sv-hero-art .sun { animation: pulseSoft 9s ease-in-out infinite; }
+/* Header row inside the hero (celebration .pro-header pattern, green). */
+.pro-header { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; align-items: center; }
+.pro-header .pro-brand { font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; font-weight: 700; color: #FFFFFF; letter-spacing: -0.02em; white-space: normal; word-break: break-word; }
+.pro-header .pro-tag { font-size: 0.8rem; color: #A7F3D0; white-space: normal; }
+
+/* ---- Footer (all pages) ---- */
+.pro-footer { border-top: 3px solid #0E7C5B; padding-top: 0.75rem; margin-top: 2rem; font-size: 0.85rem; color: #6B7280; display: flex; flex-direction: column; gap: 4px; }
+.pro-footer b { color: #0A5C44; }
+
+/* ---- Dashboard cards & metric tiles ---- */
+[data-testid="stMetric"] { background: #FFFFFF; border: 1px solid #C9EBD9; border-radius: 16px; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); min-width: 0; animation: fadeUp 0.4s ease both; transition: transform 0.18s ease, box-shadow 0.18s ease; }
+[data-testid="stMetric"]:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(14, 124, 91, 0.14); }
+[data-testid="stMetricValue"] { font-size: 1.4rem; white-space: normal; word-break: break-word; color: #0A5C44; }
+[data-testid="stMetricLabel"] { font-size: 0.8rem; letter-spacing: 0.04em; text-transform: uppercase; color: #6B7280; }
+[data-testid="stMetricDelta"] { font-size: 0.85rem; }
+/* Charts sit on white cards so they look designed, not default. */
+[data-testid="stPlotlyChart"] { background: #FFFFFF; border: 1px solid #D1E7DC; border-radius: 16px; padding: 0.75rem 0.75rem 0.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); animation: fadeUp 0.4s ease both; }
+
+/* ---- AQI gauge (SVG dial, needle sweeps on load) ---- */
+.sv-gauge { background: #FFFFFF; border: 1px solid #C9EBD9; border-radius: 16px; padding: 0.75rem 0.5rem 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center; animation: fadeUp 0.4s ease both; }
+.sv-gauge svg { max-width: 300px; width: 100%; height: auto; }
+.sv-gauge .gauge-needle { transform: rotate(var(--gauge-angle, 0deg)); transform-origin: 100px 100px; transform-box: view-box; animation: gaugeSweep 1.2s ease-out both; }
+.sv-gauge .gauge-value { font-size: 2rem; font-weight: 700; fill: #1F2937; }
+.sv-gauge .gauge-category { font-size: 0.85rem; font-weight: 700; fill: #0A5C44; }
+.sv-gauge .gauge-tick { font-size: 0.6rem; fill: #6B7280; }
+
+/* ---- "Why This, Why Now?" blocks ---- */
+.impact-note { background: #EAF7F0; border-left: 4px solid #0E7C5B; border-radius: 12px; padding: 0.8rem 1rem; margin: 0.6rem 0 1rem; font-size: 0.95rem; line-height: 1.55; animation: fadeUp 0.4s ease both; }
+.impact-note b { color: #0A5C44; }
+
+/* ---- Buttons ---- */
+.stButton > button, .stFormSubmitButton > button { border-radius: 14px; padding: 0.6rem 1.4rem; font-weight: 600; border: 1px solid #D1E7DC; min-height: 44px; background: #FFFFFF; color: #0A5C44; transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+.stButton > button:hover, .stFormSubmitButton > button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(14, 124, 91, 0.18); border-color: #0E7C5B; }
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] { background: linear-gradient(135deg, #0E7C5B, #0E7490); color: #FFFFFF; border: none; box-shadow: 0 4px 14px rgba(14, 124, 91, 0.4); }
+.stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover { box-shadow: 0 6px 18px rgba(14, 124, 91, 0.5); }
+.stButton > button:focus-visible, .stFormSubmitButton > button:focus-visible { outline: 2px solid #0E7C5B; outline-offset: 2px; }
+/* Sidebar search-result buttons read as clean list rows. */
+[data-testid="stSidebar"] .stButton > button { width: 100%; text-align: left; border-radius: 10px; padding: 0.45rem 0.9rem; min-height: 38px; font-weight: 500; }
+
+/* ---- Sidebar ---- */
+[data-testid="stSidebar"] { background: #DFF3E8; }
+[data-testid="stSidebar"] h2 { color: #0A5C44; border-bottom-color: #A7D9C0; }
+[data-testid="stSidebar"] h3 { color: #0A5C44; }
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { color: #4B5563; }
+
+/* ---- Alerts, expanders, inputs, tables ---- */
+.stAlert { border-radius: 12px; animation: fadeUp 0.35s ease both; }
+[data-testid="stExpander"] { border: 1px solid #C9EBD9; border-radius: 14px; background: #FFFFFF; }
+[data-testid="stExpander"] summary { font-weight: 600; color: #0A5C44; }
+.stTextInput input, .stNumberInput input, .stSelectbox > div > div, .stTextArea textarea { border-radius: 10px; }
+.stTextInput input:focus, .stTextArea textarea:focus { border-color: #0E7C5B !important; box-shadow: 0 0 0 1px #0E7C5B !important; }
+.stSlider [data-testid="stThumbValue"] { color: #0A5C44; }
+[data-testid="stTable"] table { border-radius: 12px; overflow: hidden; }
+[data-testid="stTable"] th { background: #EAF7F0; color: #0A5C44; }
+[data-testid="stTable"] td { background: #FFFFFF; }
+[data-testid="stDataFrame"] { border-radius: 12px; overflow: hidden; }
+[data-testid="stSpinner"] { color: #0E7C5B; }
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color: #0E7C5B; border-bottom-color: #0E7C5B; }
+.stDownloadButton > button { border-radius: 14px; font-weight: 600; border: 1px solid #D1E7DC; }
+.stCheckbox label, .stRadio label { color: #1F2937; }
+
+/* ---- Stepper / journey progress (celebration pattern, green) ---- */
+.stepper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0.75rem 0; }
+.step { display: flex; align-items: center; gap: 6px; border: 1px solid #C9EBD9; border-radius: 999px; padding: 6px 12px; background: #FFFFFF; font-size: 0.85rem; }
+.step.done { background: #DFF3E8; border-color: #0E7C5B; }
+.step.current { background: #FFFBEB; border: 2px solid #F59E0B; font-weight: 700; }
+.step.upcoming { color: #6B7280; }
+.step-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #F3F4F6; font-size: 0.8rem; font-weight: 700; }
+.step.done .step-mark { background: #0E7C5B; color: #FFFFFF; }
+.step.current .step-mark { background: #F59E0B; color: #FFFFFF; }
+.step-arrow { color: #0E7C5B; font-weight: 700; }
+.progress-tracker { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 0; align-items: flex-start; margin: 1rem 0; padding: 0.5rem 0.5rem 0.75rem; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); scrollbar-width: thin; }
+.track-step { flex: 1 0 76px; text-align: center; position: relative; padding-top: 2px; }
+.track-step::before { content: ""; position: absolute; top: 23px; left: 0; right: 0; height: 4px; background: #E5E7EB; z-index: 0; }
+.track-step:first-child::before { left: 50%; }
+.track-step:last-child::before { right: 50%; }
+.track-step.done::before { background: #0E7C5B; }
+.track-step.current::before { background: linear-gradient(90deg, #0E7C5B, #F59E0B); left: 0; }
+.track-circle { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: #FFFFFF; border: 2px solid #D1D5DB; color: #6B7280; font-size: 1.1rem; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.track-step.done .track-circle { background: #0E7C5B; border-color: #0E7C5B; color: #FFFFFF; }
+.track-step.current .track-circle { background: #FFFBEB; border: 3px solid #F59E0B; color: #92400E; width: 48px; height: 48px; }
+.track-label { display: block; margin-top: 6px; font-size: 0.75rem; line-height: 1.2; color: #374151; }
+.track-step.upcoming .track-label { color: #6B7280; }
+.track-step.current .track-label { font-weight: 700; color: #1F2937; }
+
+/* ---- Small screens ---- */
+@media (max-width: 640px) {
+  .block-container { padding-top: 1.5rem; padding-left: 1rem; padding-right: 1rem; }
+  .sv-hero { padding: 1.1rem 1rem; }
+  .sv-hero h1 { font-size: 1.5rem; }
+  .sv-hero-art { width: 100%; opacity: 0.35; }
+  h1 { font-size: 1.7rem; }
+}

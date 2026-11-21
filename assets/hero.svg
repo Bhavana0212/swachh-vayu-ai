@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 240" role="img" aria-hidden="true">
+  <!-- Decorative hero art: clean-air sky over an Indian city skyline.
+       Pure SVG, no external images. Clouds and leaves are animated by
+       the theme CSS (.sv-hero-art .c1/.c2/.c3/.leaf). -->
+  <g class="sun">
+    <circle cx="556" cy="46" r="46" fill="#FEF3C7" opacity="0.35"/>
+    <circle cx="556" cy="46" r="28" fill="#FEF3C7" opacity="0.9"/>
+  </g>
+  <g class="cloud c1" opacity="0.75">
+    <ellipse cx="120" cy="52" rx="52" ry="20" fill="#FFFFFF"/>
+    <ellipse cx="152" cy="40" rx="34" ry="18" fill="#FFFFFF"/>
+    <ellipse cx="92" cy="42" rx="28" ry="14" fill="#FFFFFF"/>
+  </g>
+  <g class="cloud c2" opacity="0.5">
+    <ellipse cx="330" cy="86" rx="64" ry="22" fill="#FFFFFF"/>
+    <ellipse cx="368" cy="72" rx="40" ry="18" fill="#FFFFFF"/>
+    <ellipse cx="296" cy="74" rx="30" ry="14" fill="#FFFFFF"/>
+  </g>
+  <g class="cloud c3" opacity="0.6">
+    <ellipse cx="520" cy="128" rx="44" ry="16" fill="#FFFFFF"/>
+    <ellipse cx="546" cy="118" rx="28" ry="13" fill="#FFFFFF"/>
+  </g>
+  <g stroke="#FFFFFF" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.65">
+    <path d="M 250 40 q 7 -8 14 0 q 7 -8 14 0"/>
+    <path d="M 300 62 q 6 -7 12 0 q 6 -7 12 0"/>
+  </g>
+  <g class="leaf l1">
+    <path d="M 84 150 q 22 -20 40 -2 q -20 22 -40 2 Z" fill="#D1FAE5" opacity="0.85"/>
+    <path d="M 88 148 L 120 150" stroke="#0E7C5B" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  <g class="leaf l2">
+    <path d="M 470 170 q 18 -18 36 -2 q -18 20 -36 2 Z" fill="#D1FAE5" opacity="0.7"/>
+    <path d="M 474 168 L 502 170" stroke="#0E7C5B" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  <!-- City skyline silhouette -->
+  <g fill="#0A5C44" opacity="0.28">
+    <rect x="10" y="168" width="34" height="72"/>
+    <rect x="52" y="146" width="28" height="94"/>
+    <rect x="88" y="178" width="44" height="62"/>
+    <rect x="140" y="158" width="30" height="82"/>
+    <rect x="178" y="186" width="52" height="54"/>
+    <rect x="238" y="150" width="26" height="90"/>
+    <rect x="272" y="176" width="40" height="64"/>
+    <rect x="320" y="162" width="30" height="78"/>
+    <rect x="358" y="188" width="48" height="52"/>
+    <rect x="414" y="156" width="28" height="84"/>
+    <rect x="450" y="180" width="42" height="60"/>
+    <rect x="500" y="164" width="30" height="76"/>
+    <rect x="538" y="184" width="46" height="56"/>
+    <rect x="592" y="170" width="38" height="70"/>
+  </g>
+  <g fill="#FEF3C7" opacity="0.5">
+    <rect x="20" y="182" width="6" height="6"/><rect x="60" y="160" width="6" height="6"/>
+    <rect x="98" y="192" width="6" height="6"/><rect x="148" y="172" width="6" height="6"/>
+    <rect x="246" y="164" width="6" height="6"/><rect x="328" y="176" width="6" height="6"/>
+    <rect x="422" y="170" width="6" height="6"/><rect x="508" y="178" width="6" height="6"/>
+    <rect x="600" y="184" width="6" height="6"/>
+  </g>
+</svg>
