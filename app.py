@@ -329,6 +329,18 @@ def pollutant_label(key: str) -> str:
     return POLLUTANT_LABELS.get(key, key.replace("_", " ").title())
 
 
+def labelled_basis(basis: str) -> str:
+    """Replace raw pollutant keys inside the averaging-basis sentence
+    with display labels, so users never see 'pm2_5' or
+    'nitrogen_dioxide'. Longest keys first, so no partial replacement
+    can occur. Presentation only — the stored basis is untouched."""
+    out = basis
+    for key, label in sorted(POLLUTANT_LABELS.items(),
+                             key=lambda kv: -len(kv[0])):
+        out = out.replace(key, label)
+    return out
+
+
 # Plotly modebar hidden on all charts: the grey toolbar cluttered the
 # white chart cards; the same data is always in a table or the legend.
 PLOTLY_CONFIG = {"displayModeBar": False}
@@ -459,10 +471,10 @@ def sub_index_chart(indian):
     top = max(values) if values else 0
     if top > 0:
         fig.update_xaxes(range=[0, top * 1.14])
-    fig.update_traces(marker_line_width=0, texttemplate="%{x:g}",
+    fig.update_traces(marker_line_width=0, texttemplate="%{x:.0f}",
                       textposition="outside",
-                      textfont=dict(size=12, color="#1F2937"),
-                      hovertemplate="%{y}: %{x}<extra></extra>")
+                      textfont=dict(size=14, color="#1F2937"),
+                      hovertemplate="%{y}: %{x:.0f}<extra></extra>")
     return theme_fig(fig)
 
 
@@ -587,8 +599,8 @@ def page_home() -> None:
             st.markdown(indian.badge_html(), unsafe_allow_html=True)
             st.markdown(aqi_gauge_html(indian), unsafe_allow_html=True)
             st.caption(INDIAN_AQI_LABEL)
-            st.caption(f"Averaging basis: {indian.basis}")
-            st.caption(f"Dominant pollutant: {indian.dominant}")
+            st.caption(f"Averaging basis: {labelled_basis(indian.basis)}")
+            st.caption(f"Dominant pollutant: {pollutant_label(indian.dominant)}")
         else:
             st.warning(f"{indian.reason} Showing {scale} as the primary "
                        "display instead.")
@@ -613,21 +625,23 @@ def page_home() -> None:
 
     # Pollutant cards — 3x3 grid so every row is even (the old 4-column
     # layout left the fourth column one card taller than the rest).
-    st.subheader("Pollutants (µg/m³, except CO in µg/m³ — see note)")
+    st.subheader("Pollutants (µg/m³)")
     current = report.current
+    # Columns fill top-to-bottom, so the cards are arranged for rows to
+    # read PM2.5 / PM10 / NO2, then O3 / SO2 / CO, then Dust / NH3 / Pb.
     cols = st.columns(3)
     with cols[0]:
         pollutant_card("PM2.5", current.pm2_5, "µg/m³", conf["pm2_5"])
-        pollutant_card("PM10", current.pm10, "µg/m³", conf["pm10"])
-        pollutant_card("NO2", current.nitrogen_dioxide, "µg/m³", conf["nitrogen_dioxide"])
-    with cols[1]:
         pollutant_card("O3", current.ozone, "µg/m³", conf["ozone"])
-        pollutant_card("SO2", current.sulphur_dioxide, "µg/m³", conf["sulphur_dioxide"])
-        pollutant_card("CO", current.carbon_monoxide, "µg/m³", conf["carbon_monoxide"])
-    with cols[2]:
         pollutant_card("Dust", current.dust, "µg/m³", conf["dust"])
+    with cols[1]:
+        pollutant_card("PM10", current.pm10, "µg/m³", conf["pm10"])
+        pollutant_card("SO2", current.sulphur_dioxide, "µg/m³", conf["sulphur_dioxide"])
         st.metric("NH3", "not available",
                   help="Ammonia is not provided by Open-Meteo — never invented.")
+    with cols[2]:
+        pollutant_card("NO2", current.nitrogen_dioxide, "µg/m³", conf["nitrogen_dioxide"])
+        pollutant_card("CO", current.carbon_monoxide, "µg/m³", conf["carbon_monoxide"])
         st.metric("Lead (Pb)", "not available",
                   help="Lead is not provided by Open-Meteo — never invented.")
     st.caption("CO is converted from µg/m³ to mg/m³ (÷1000) before the CPCB "
