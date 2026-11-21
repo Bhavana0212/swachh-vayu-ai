@@ -361,10 +361,15 @@ def theme_fig(fig, legend_below: bool = False):
     """Shared Plotly styling: theme font, transparent paper (the chart
     sits on a white CSS card), soft gridlines, tidy margins. Legends sit
     inside the plot (short entries) or below it (long band names, which
-    clip inside)."""
+    clip inside). A below-chart legend is positioned relative to the
+    plot area, so it needs a deep bottom margin AND the x-axis title
+    cleared — otherwise it crowds the axis title and the card's bottom
+    edge (seen live 2026-11-21). All three below-legend charts have
+    self-evident x-axes (days / pollutants), so dropping the title
+    loses nothing."""
     legend = (dict(bgcolor="rgba(255,255,255,0.85)",
                    bordercolor="#D1E7DC", borderwidth=1,
-                   orientation="h", yanchor="top", y=-0.2,
+                   orientation="h", yanchor="top", y=-0.25,
                    xanchor="center", x=0.5)
               if legend_below else
               dict(bgcolor="rgba(255,255,255,0.85)",
@@ -380,11 +385,13 @@ def theme_fig(fig, legend_below: bool = False):
         hovermode="x unified",
         hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D1E7DC",
                         font_size=12),
-        # A below-chart legend needs bottom room, else it sits inside
-        # the frame's bottom edge.
-        margin=dict(l=10, r=10, t=40, b=60 if legend_below else 10))
+        margin=dict(l=10, r=10, t=40, b=90 if legend_below else 10))
     fig.update_xaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
     fig.update_yaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
+    if legend_below:
+        # Free the bottom margin for the legend: the x-axis title would
+        # sit in the same band and collide with it.
+        fig.update_xaxes(title_text="")
     return fig
 
 
