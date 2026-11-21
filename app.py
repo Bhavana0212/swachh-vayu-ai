@@ -312,6 +312,26 @@ def pollutant_card(label: str, value, unit: str, status: str) -> None:
 # same verified colours as planner/indian_aqi.CATEGORIES, never re-themed.
 CPCB_DISCRETE_COLOURS = {cat: colour for _, _, cat, colour, _, _
                          in INDIAN_CATEGORIES}
+
+# Display names for pollutant/data keys — used by the sub-index chart,
+# the sub-index table and the Data confidence table, so users never see
+# raw keys like "nitrogen_dioxide" or "PM2 5". Presentation only.
+POLLUTANT_LABELS = {
+    "pm2_5": "PM2.5", "pm10": "PM10", "nitrogen_dioxide": "NO2",
+    "ozone": "O3", "sulphur_dioxide": "SO2", "carbon_monoxide": "CO",
+    "dust": "Dust", "indian_aqi": "Indian AQI", "us_aqi": "US AQI",
+    "european_aqi": "European AQI", "weather": "Weather",
+}
+
+
+def pollutant_label(key: str) -> str:
+    """Human-readable label for a pollutant/data key."""
+    return POLLUTANT_LABELS.get(key, key.replace("_", " ").title())
+
+
+# Plotly modebar hidden on all charts: the grey toolbar cluttered the
+# white chart cards; the same data is always in a table or the legend.
+PLOTLY_CONFIG = {"displayModeBar": False}
 # Continuous scale with HARD edges at the CPCB band limits (0/50/100/200/
 # 300/400/500 over a 0–500 range), so a coloured marker always falls in
 # its real CPCB band instead of blending between bands.
@@ -346,6 +366,8 @@ def theme_fig(fig, legend_below: bool = False):
         plot_bgcolor="rgba(0,0,0,0)",
         legend=legend,
         hovermode="x unified",
+        hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#D1E7DC",
+                        font_size=12),
         margin=dict(l=10, r=10, t=40, b=10))
     fig.update_xaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
     fig.update_yaxes(gridcolor="#E5E7EB", zerolinecolor="#E5E7EB")
@@ -365,7 +387,7 @@ def aqi_chart(hourly, title: str):
         name="Indian AQI*", mode="lines",
         line=dict(color="#C2410C", dash="dash", width=2)))
     fig.update_layout(title=title, xaxis_title="Time (IST)",
-                      yaxis_title="Value", height=320)
+                      yaxis_title="PM2.5 (µg/m³) / AQI", height=320)
     return theme_fig(fig)
 
 
@@ -421,17 +443,26 @@ def sub_index_chart(indian):
     visual answer to 'why is the AQI this value?'. Bars are coloured by
     their CPCB band; values are the real calculated sub-indices."""
     items = sorted(indian.sub_indices.items(), key=lambda kv: kv[1])
-    labels = [key.replace("_", " ").upper() for key, _ in items]
+    labels = [pollutant_label(key) for key, _ in items]
     values = [sub for _, sub in items]
     cats = [indian_category_for(sub)[0] for sub in values]
     fig = px.bar(x=values, y=labels, color=cats,
                  color_discrete_map=CPCB_DISCRETE_COLOURS,
-                 labels={"x": "Sub-index (CPCB)", "y": "Pollutant",
+                 labels={"x": "Sub-index (CPCB)", "y": "",
                          "color": "CPCB band"},
                  orientation="h")
     fig.update_layout(height=max(220, 60 + 34 * len(items)),
-                      showlegend=False)
-    fig.update_traces(marker_line_width=0, hovertemplate="%{y}: %{x}<extra></extra>")
+                      showlegend=False, bargap=0.35)
+    # Value labels at the end of each bar (texttemplate evaluates
+    # per-point, so it stays correct across the per-band traces), with
+    # headroom on the x-axis so the longest label is never clipped.
+    top = max(values) if values else 0
+    if top > 0:
+        fig.update_xaxes(range=[0, top * 1.14])
+    fig.update_traces(marker_line_width=0, texttemplate="%{x:g}",
+                      textposition="outside",
+                      textfont=dict(size=12, color="#1F2937"),
+                      hovertemplate="%{y}: %{x}<extra></extra>")
     return theme_fig(fig)
 
 
@@ -580,20 +611,20 @@ def page_home() -> None:
         st.caption("US and European AQI are shown separately — they are "
                    "different scales and are never mixed into the Indian AQI.")
 
-    # Pollutant cards
+    # Pollutant cards — 3x3 grid so every row is even (the old 4-column
+    # layout left the fourth column one card taller than the rest).
     st.subheader("Pollutants (µg/m³, except CO in µg/m³ — see note)")
     current = report.current
-    cols = st.columns(4)
+    cols = st.columns(3)
     with cols[0]:
         pollutant_card("PM2.5", current.pm2_5, "µg/m³", conf["pm2_5"])
+        pollutant_card("PM10", current.pm10, "µg/m³", conf["pm10"])
         pollutant_card("NO2", current.nitrogen_dioxide, "µg/m³", conf["nitrogen_dioxide"])
     with cols[1]:
-        pollutant_card("PM10", current.pm10, "µg/m³", conf["pm10"])
         pollutant_card("O3", current.ozone, "µg/m³", conf["ozone"])
-    with cols[2]:
         pollutant_card("SO2", current.sulphur_dioxide, "µg/m³", conf["sulphur_dioxide"])
         pollutant_card("CO", current.carbon_monoxide, "µg/m³", conf["carbon_monoxide"])
-    with cols[3]:
+    with cols[2]:
         pollutant_card("Dust", current.dust, "µg/m³", conf["dust"])
         st.metric("NH3", "not available",
                   help="Ammonia is not provided by Open-Meteo — never invented.")
@@ -605,13 +636,14 @@ def page_home() -> None:
     # Sub-index chart + table — WHY the AQI is what it is
     if indian.available and indian.sub_indices:
         st.subheader("Why is the AQI this value? Sub-index per pollutant")
-        st.plotly_chart(sub_index_chart(indian), width="stretch")
+        st.plotly_chart(sub_index_chart(indian), width="stretch",
+                        config=PLOTLY_CONFIG)
         rows = []
         for key, sub in sorted(indian.sub_indices.items(),
                                key=lambda item: -item[1]):
             mean = indian.means.get(key)
             hours = indian.hours_used.get(key, 0)
-            rows.append({"Pollutant": key,
+            rows.append({"Pollutant": pollutant_label(key),
                          "Averaged value": (f"{mean:.1f}" if mean is not None else "—"),
                          "Hours used": hours,
                          "Sub-index": sub,
@@ -683,7 +715,7 @@ def page_home() -> None:
     today = report.today_hours()
     if today:
         st.plotly_chart(aqi_chart(today, "PM2.5 and indicative Indian AQI today (IST)"),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     best = report.best_hour_today()
     worst = report.worst_hour_today()
     b1, b2 = st.columns(2)
@@ -711,10 +743,22 @@ def page_home() -> None:
             category_orders={"x": day_labels})
         fig.update_layout(height=320, showlegend=True,
                           legend=dict(title="CPCB band"))
-        st.plotly_chart(theme_fig(fig, legend_below=True), width="stretch")
+        # Value labels on top of each bar, with headroom so the
+        # tallest label is never clipped.
+        top = max((v for v in trend_values if v is not None),
+                  default=0)
+        if top > 0:
+            fig.update_yaxes(range=[0, top * 1.15])
+        fig.update_traces(texttemplate="%{y:.0f}",
+                          textposition="outside",
+                          textfont=dict(size=12, color="#1F2937"))
+        st.plotly_chart(theme_fig(fig, legend_below=True),
+                        width="stretch", config=PLOTLY_CONFIG)
 
     st.subheader("Data confidence")
-    st.write({key: value for key, value in conf.items()})
+    # A clean table, not a raw JSON dict — same data, readable labels.
+    st.table([{"Data": pollutant_label(key), "Status": status}
+              for key, status in conf.items()])
     st.caption("modelled = Open-Meteo CAMS value · estimated = calculated "
                "in-app from modelled data · missing = not available · "
                "sample = offline fallback values.")
@@ -815,11 +859,16 @@ def page_forecast() -> None:
     today = report.today_hours()
     if today:
         st.plotly_chart(aqi_chart(today, "PM2.5 and indicative Indian AQI (IST)"),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
         rows = [{"Hour": p.time[11:16],
-                 "Indian AQI*": p.indian_aqi if p.indian_aqi is not None else "—",
-                 "US AQI": p.us_aqi if p.us_aqi is not None else "—",
-                 "PM2.5": p.pm2_5, "PM10": p.pm10} for p in today]
+                 "Indian AQI*": (f"{p.indian_aqi:g}"
+                                 if p.indian_aqi is not None else "—"),
+                 "US AQI": (f"{p.us_aqi:g}"
+                            if p.us_aqi is not None else "—"),
+                 "PM2.5": (f"{p.pm2_5:.1f}"
+                           if p.pm2_5 is not None else "—"),
+                 "PM10": (f"{p.pm10:.1f}"
+                          if p.pm10 is not None else "—")} for p in today]
         st.table(rows)
         st.caption("* Indicative single-hour Indian AQI — a single hour's "
                    "concentrations standing in for the CPCB means. The "
@@ -851,11 +900,21 @@ def page_forecast() -> None:
             category_orders={"x": day_labels})
         fig.update_layout(height=320, showlegend=True,
                           legend=dict(title="CPCB band"))
-        st.plotly_chart(theme_fig(fig, legend_below=True), width="stretch")
+        # Value labels on top of each bar, with headroom so the
+        # tallest label is never clipped.
+        top = max((v for v in trend_values if v is not None),
+                  default=0)
+        if top > 0:
+            fig.update_yaxes(range=[0, top * 1.15])
+        fig.update_traces(texttemplate="%{y:.0f}",
+                          textposition="outside",
+                          textfont=dict(size=12, color="#1F2937"))
+        st.plotly_chart(theme_fig(fig, legend_below=True),
+                        width="stretch", config=PLOTLY_CONFIG)
         st.table([{"Day": day_label(day),
-                   "Max US AQI": us if us is not None else "—",
-                   "Mean PM2.5": pm if pm is not None else "—",
-                   "Max Indian AQI*": ind if ind is not None else "—"}
+                   "Max US AQI": (f"{us:g}" if us is not None else "—"),
+                   "Mean PM2.5": (f"{pm:.1f}" if pm is not None else "—"),
+                   "Max Indian AQI*": (f"{ind:g}" if ind is not None else "—")}
                   for day, us, pm, ind in trend])
 
     st.subheader("AI Pollution Predictor")
@@ -1136,9 +1195,10 @@ def page_alternatives() -> None:
                         key="impact_mode")
     rows = compare_modes(km, mode)
     best_mode = lowest_emission_mode(rows)
-    st.table([{"Mode": r.mode, "CO2/day (kg)": r.co2_per_day_kg,
-               "CO2/week (kg)": r.co2_per_week_kg,
-               "Saving vs current (kg/week)": r.saving_vs_current_kg_week,
+    st.table([{"Mode": r.mode, "CO2/day (kg)": f"{r.co2_per_day_kg:.2f}",
+               "CO2/week (kg)": f"{r.co2_per_week_kg:.2f}",
+               "Saving vs current (kg/week)":
+                   f"{r.saving_vs_current_kg_week:.2f}",
                "Exposure": r.exposure_level} for r in rows])
     if best_mode is not None:
         st.success(f"Lowest-emission option for this trip: **{best_mode.mode}** "
@@ -1166,8 +1226,10 @@ def page_whatif() -> None:
     km = st.slider("Commute distance (one way, km)", 0.0, 50.0,
                    float(profile.commute_km), 0.5, key="whatif_km")
     rows = compare_modes(km, profile.commute_mode)
-    st.table([{"Mode": r.mode, "CO2/week (kg)": r.co2_per_week_kg,
-               "Saving vs current (kg/week)": r.saving_vs_current_kg_week,
+    st.table([{"Mode": r.mode,
+               "CO2/week (kg)": f"{r.co2_per_week_kg:.2f}",
+               "Saving vs current (kg/week)":
+                   f"{r.saving_vs_current_kg_week:.2f}",
                "Exposure": f"{r.exposure_level} — {r.exposure_note}"}
               for r in rows])
 
@@ -1336,9 +1398,12 @@ def page_compare() -> None:
                             if city_report.indian_aqi.available else "—"),
             "US AQI": (city_report.current.us_aqi
                        if city_report.current.us_aqi is not None else "—"),
-            "PM2.5": city_report.current.pm2_5,
-            "PM10": city_report.current.pm10,
-            "Dominant": city_report.indian_aqi.dominant,
+            "PM2.5": (f"{city_report.current.pm2_5:.1f}"
+                      if city_report.current.pm2_5 is not None else "—"),
+            "PM10": (f"{city_report.current.pm10:.1f}"
+                     if city_report.current.pm10 is not None else "—"),
+            "Dominant": (pollutant_label(city_report.indian_aqi.dominant)
+                         if city_report.indian_aqi.dominant else "—"),
             "Cleanest hour": hour_label(best.time) if best else "—",
             "Data time": city_report.current.time,
             "Live": "yes" if city_report.is_live else "sample",
@@ -1390,7 +1455,8 @@ def page_compare() -> None:
                                                ticktext=["Good", "Satisfactory",
                                                          "Moderate", "Poor",
                                                          "Very Poor", "Severe"]))
-            st.plotly_chart(theme_fig(fig), width="stretch")
+            st.plotly_chart(theme_fig(fig), width="stretch",
+                          config=PLOTLY_CONFIG)
         st.subheader("City Clean-Air Ranking")
         ranked_all = sorted(map_rows, key=lambda r: (r["aqi"] is None,
                                                      r["aqi"] or 0))
@@ -1773,7 +1839,9 @@ def page_analytics() -> None:
         import pandas as pd
         df = pd.DataFrame(history, columns=["day", "max_us_aqi", "mean_pm25"])
         st.line_chart(df.set_index("day")[["max_us_aqi", "mean_pm25"]])
-        st.table([{"Day": day, "Max US AQI": aqi, "Mean PM2.5": pm}
+        st.table([{"Day": day,
+                   "Max US AQI": (f"{aqi:g}" if aqi is not None else "—"),
+                   "Mean PM2.5": (f"{pm:.1f}" if pm is not None else "—")}
                   for day, aqi, pm in history])
         st.caption("Historical data from the Open-Meteo Air Quality API "
                    "(past_days) — modelled values, not station readings.")
@@ -1790,7 +1858,9 @@ def page_analytics() -> None:
     snapshots = get_store().snapshots(report.city.name)
     if snapshots:
         st.table([{"Day": s["day"], "Indian AQI": s["indian_aqi"],
-                   "US AQI": s["us_aqi"], "PM2.5": s["pm25"]}
+                   "US AQI": s["us_aqi"],
+                   "PM2.5": (f"{s['pm25']:.1f}"
+                             if s["pm25"] is not None else "—")}
                   for s in snapshots])
     else:
         st.write("No snapshots yet — each dashboard visit stores one.")
