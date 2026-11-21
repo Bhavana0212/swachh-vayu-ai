@@ -203,7 +203,7 @@ python -m pytest -q
 
 ## Tests
 
-419 tests, all passing (`pytest -q`, ~2s): Indian AQI calculation (94 tests
+421 tests, all passing (`pytest -q`, ~2s): Indian AQI calculation (94 tests
 pinning the verified CPCB breakpoint table), AQI banding (US + European),
 API parsing (mocked responses, India-only filtering, past_hours request),
 routine generation, safety verdicts, indoor estimator, impact maths,
