@@ -50,11 +50,13 @@ def detect_spikes(report: AirReport, threshold_pct: float = 20.0,
                 spikes.append(Spike(
                     day=day, aqi=value, previous_aqi=prev,
                     rise_pct=round(rise, 1), category=category,
-                    advice=(f"Pollution is forecast to rise about "
-                            f"{rise:.0f}% on {day} (AQI {value:g}, "
-                            f"{category}). Plan outdoor time for earlier in "
-                            "the week, keep the purifier ready, and check "
-                            "the day's plan that morning."),
+                    # Advice only: the warning line in app.py already
+                    # states the day, AQI, category and rise, so the
+                    # advice must not repeat them (it used to, word for
+                    # word). Keep just the action.
+                    advice=("Plan outdoor time for earlier in the week, "
+                            "keep the purifier ready, and check the day's "
+                            "plan that morning."),
                 ))
         prev = value
     return spikes
