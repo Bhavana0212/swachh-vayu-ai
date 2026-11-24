@@ -257,6 +257,18 @@ def set_city(name: str, lat: float, lon: float) -> None:
     st.session_state["city"] = {"name": name, "lat": lat, "lon": lon}
 
 
+def sync_quick_city(name: str) -> None:
+    """Keep the Quick cities selectbox in step when another control
+    (search, state browser, favourites, recents) changes the city.
+    Bumping the widget key re-creates the selectbox with the new city
+    selected; without this the selectbox keeps its old value and its
+    change-handler would reset the city back on the next rerun."""
+    if name in QUICK_CITIES:
+        st.session_state["quick_key"] = (
+            st.session_state.get("quick_key", 0) + 1)
+        st.session_state["prev_quick"] = name
+
+
 # ---------------------------------------------------------------------------
 # Small UI helpers
 # ---------------------------------------------------------------------------
@@ -522,15 +534,24 @@ with st.sidebar:
     st.session_state["lang"] = "hi" if "हिंदी" in lang_choice else "en"
 
     st.markdown(f"### {L('city')}")
+    # The selectbox must only switch the city when the USER changes
+    # it. Comparing against the city (not the selectbox's previous
+    # value) would undo a city set by search / state browser /
+    # favourites on the very next rerun, because the widget keeps its
+    # old value while session_state["city"] has already moved on.
+    quick_key = f"quick_city_{st.session_state.get('quick_key', 0)}"
     quick = st.selectbox(
         "Quick cities", list(QUICK_CITIES),
         index=list(QUICK_CITIES).index(st.session_state["city"]["name"])
         if st.session_state["city"]["name"] in QUICK_CITIES else 0,
-        key="quick_city")
-    if quick != st.session_state["city"]["name"]:
+        key=quick_key)
+    prev_quick = st.session_state.get("prev_quick", quick)
+    if quick != prev_quick:
+        st.session_state["prev_quick"] = quick
         lat, lon, _ = QUICK_CITIES[quick]
         set_city(quick, lat, lon)
         st.rerun()
+    st.session_state["prev_quick"] = quick
 
     query = st.text_input("Search an Indian city", key="city_search",
                           placeholder="e.g. Varanasi, Kochi, Indore")
@@ -546,6 +567,7 @@ with st.sidebar:
         label = f"{result.name}, {result.admin1}" if result.admin1 else result.name
         if st.button(label, key=f"search_{result.name}_{result.latitude}"):
             set_city(result.name, result.latitude, result.longitude)
+            sync_quick_city(result.name)
             st.session_state["search_results"] = []
             st.rerun()
     if st.session_state.get("search_note"):
@@ -560,6 +582,7 @@ with st.sidebar:
             found = city_from_bundled(chosen)
             if found:
                 set_city(found.name, found.latitude, found.longitude)
+                sync_quick_city(found.name)
                 st.rerun()
 
     st.markdown("### Accessibility")
@@ -820,6 +843,7 @@ def page_locations() -> None:
             c1.write(f"**{fav['name']}**")
             if c2.button("Open", key=f"fav_open_{fav['name']}"):
                 set_city(fav["name"], fav["lat"], fav["lon"])
+                sync_quick_city(fav["name"])
                 st.rerun()
             if c2.button("Remove", key=f"fav_rm_{fav['name']}"):
                 store.remove_favourite(fav["name"])
@@ -833,6 +857,7 @@ def page_locations() -> None:
         for recent in store.recent_cities():
             if st.button(f"{recent['name']}", key=f"recent_{recent['name']}"):
                 set_city(recent["name"], recent["lat"], recent["lon"])
+                sync_quick_city(recent["name"])
                 st.rerun()
     with col_b:
         st.subheader("Multiple location tracking — Home, Office, School")
